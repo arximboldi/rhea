@@ -995,3 +995,137 @@ BOOST_AUTO_TEST_CASE(contains_constraint)
     solver.remove_constraint(c);
     BOOST_CHECK(!solver.contains_constraint(c));
 }
+
+BOOST_AUTO_TEST_CASE(stays_really_stay)
+{
+    // This test tries to reproduce a bug found via aqt-cassowary.
+    // The problem is that sometimes stays do not really stay in the
+    // presence of other constraints
+    // changing.
+    //
+    // This test is a trace that is known to PASS
+    variable
+        pos_a, pos_b, pos_c,
+        size_a{30}, size_b{30}, size_c;
+    simplex_solver solver;
+
+    solver.set_autosolve(false);
+    solver
+        .add_constraint(pos_c + size_c == 300)
+        .add_constraint(pos_c == pos_b + size_b + 10)
+        .add_constraint(size_c >= 20)
+        .add_constraint(pos_b == pos_a + size_a + 10)
+        .add_stay(size_b, strength::weak(), 4)
+        .add_constraint(size_b >= 20)
+        .add_constraint(size_a >= 20)
+        .add_constraint(pos_a == 0)
+        .add_stay(size_c, strength::weak(), 9)
+        .add_stay(size_a, strength::weak(), 1)
+        .solve();
+
+    solver
+        .add_edit_var(size_b)
+        .add_edit_var(size_a)
+        .reset_stay_constants();
+    solver
+        .suggest_value(size_b, 30)
+        .suggest_value(size_a, 30)
+        .resolve();
+    solver
+        .remove_edit_var(size_b)
+        .remove_edit_var(size_a);
+
+    solver
+        .add_edit_var(size_a, strength::medium(), 1)
+        .add_edit_var(size_b, strength::medium(), 4)
+        .add_edit_var(pos_c, strength::strong(), 1)
+        .solve()
+        .reset_stay_constants();
+    solver
+        .suggest_value(size_b, 30)
+        .suggest_value(size_a, 30)
+        .suggest_value(pos_c, 110)
+        .resolve();
+    BOOST_CHECK_EQUAL(size_a.value(), 60);
+    BOOST_CHECK_EQUAL(size_b.value(), 30);
+    BOOST_CHECK_EQUAL(size_c.value(), 190);
+
+    solver
+        .remove_edit_var(size_a)
+        .remove_edit_var(size_b)
+        .remove_edit_var(pos_c)
+        .solve();
+    BOOST_CHECK_EQUAL(size_a.value(), 60);
+    BOOST_CHECK_EQUAL(size_b.value(), 30);
+    BOOST_CHECK_EQUAL(size_c.value(), 190);
+}
+
+BOOST_AUTO_TEST_CASE(stays_really_stay_2)
+{
+    // This test tries to reproduce a bug found via aqt-cassowary.
+    // The problem is that sometimes stays do not really stay in the
+    // presence of other constraints changing.
+    //
+    // This test is known to NOT PASS
+    variable
+        pos_a, size_a{30}, pos_b, size_b{30}, pos_c, size_c;
+
+    // On the other hand, this test passes if we change the previous line
+    // to this other thing:
+    //
+    // variable
+    //    pos_a, pos_b, pos_c,
+    //    size_a{30}, size_b{30}, size_c;
+
+    simplex_solver solver;
+
+    solver.set_autosolve(false);
+    solver
+        .add_constraint(pos_c + size_c == 300)
+        .add_constraint(pos_c == pos_b + size_b + 10)
+        .add_constraint(pos_b == pos_a + size_a + 10)
+        .add_stay(size_c, strength::weak(), 9)
+        .add_constraint(size_b >= 20)
+        .add_constraint(size_a >= 20)
+        .add_constraint(size_c >= 20)
+        .add_stay(size_b, strength::weak(), 4)
+        .add_constraint(pos_a == 0)
+        .add_stay(size_a, strength::weak(), 1)
+        .solve();
+
+    solver
+        .add_edit_var(size_b)
+        .add_edit_var(size_a)
+        .reset_stay_constants();
+    solver
+        .suggest_value(size_b, 30)
+        .suggest_value(size_a, 30)
+        .resolve();
+    solver
+        .remove_edit_var(size_b)
+        .remove_edit_var(size_a);
+
+    solver
+        .add_edit_var(size_b, strength::medium(), 4)
+        .add_edit_var(size_a, strength::medium(), 1)
+        .add_edit_var(pos_c, strength::strong(), 1)
+        .solve()
+        .reset_stay_constants();
+    solver
+        .suggest_value(size_b, 30)
+        .suggest_value(size_a, 30)
+        .suggest_value(pos_c, 110)
+        .resolve();
+    BOOST_CHECK_EQUAL(size_a.value(), 60);
+    BOOST_CHECK_EQUAL(size_b.value(), 30);
+    BOOST_CHECK_EQUAL(size_c.value(), 190);
+
+    solver
+        .remove_edit_var(size_b)
+        .remove_edit_var(size_a)
+        .remove_edit_var(pos_c)
+        .solve();
+    BOOST_CHECK_EQUAL(size_a.value(), 60);
+    BOOST_CHECK_EQUAL(size_b.value(), 30);
+    BOOST_CHECK_EQUAL(size_c.value(), 190);
+}
