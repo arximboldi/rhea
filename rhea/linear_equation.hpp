@@ -73,13 +73,6 @@ public:
     virtual bool is_satisfied() const { return expr_.evaluate() == 0.0; }
 };
 
-//--------------------------------------------------------------------------
-
-inline linear_equation operator==(linear_expression lhs, const variable& rhs)
-{
-    return lhs -= rhs;
-}
-
 inline linear_equation operator==(linear_expression lhs,
                                   const linear_expression& rhs)
 {
